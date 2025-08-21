@@ -49,14 +49,13 @@ def lerp(t, v0, v1):
     return (1.0 - t) * v0 + t * v1
 
 
-# retreive commma separated pair from config
+# retrieve comma separated pair from config
 def parse_config_pair(config, option, default, minval=None, maxval=None):
     pair = config.getintlist(option, (default, default))
     if len(pair) != 2:
         if len(pair) != 1:
             raise config.error(
-                "bed_mesh: malformed '%s' value: %s"
-                % (option, config.get(option))
+                "bed_mesh: malformed '%s' value: %s" % (option, config.get(option))
             )
         pair = (pair[0], pair[0])
     if minval is not None:
@@ -74,7 +73,7 @@ def parse_config_pair(config, option, default, minval=None, maxval=None):
     return pair
 
 
-# retreive commma separated pair from a g-code command
+# retrieve comma separated pair from a g-code command
 def parse_gcmd_pair(gcmd, name, minval=None, maxval=None):
     try:
         pair = [int(v.strip()) for v in gcmd.get(name).split(",")]
@@ -97,7 +96,7 @@ def parse_gcmd_pair(gcmd, name, minval=None, maxval=None):
     return pair
 
 
-# retreive commma separated coordinate from a g-code command
+# retrieve comma separated coordinate from a g-code command
 def parse_gcmd_coord(gcmd, name):
     try:
         v1, v2 = [float(v.strip()) for v in gcmd.get(name).split(",")]
@@ -111,9 +110,7 @@ class BedMesh:
 
     def __init__(self, config):
         self.printer = config.get_printer()
-        self.printer.register_event_handler(
-            "klippy:connect", self.handle_connect
-        )
+        self.printer.register_event_handler("klippy:connect", self.handle_connect)
         config_file = self.printer.lookup_object("configfile")
         self.last_position = [0.0, 0.0, 0.0, 0.0]
         self.bmc = BedMeshCalibrate(config, self)
@@ -189,10 +186,7 @@ class BedMesh:
             else:
                 self.fade_target = self.base_fade_target
                 min_z, max_z = mesh.get_z_range()
-                if (
-                    not min_z <= self.fade_target <= max_z
-                    and self.fade_target != 0.0
-                ):
+                if not min_z <= self.fade_target <= max_z and self.fade_target != 0.0:
                     # fade target is non-zero, out of mesh range
                     err_target = self.fade_target
                     self.z_mesh = None
@@ -278,9 +272,7 @@ class BedMesh:
                 if split_move:
                     self.toolhead.move(split_move, speed)
                 else:
-                    raise self.gcode.error(
-                        "Mesh Leveling: Error splitting move "
-                    )
+                    raise self.gcode.error("Mesh Leveling: Error splitting move ")
         self.last_position[:] = newpos
 
     def get_status(self, eventtime=None):
@@ -399,12 +391,8 @@ class BedMesh:
             params = self.z_mesh.get_mesh_params()
 
             # Calculate the distance between adjacent points
-            x_dist = (params["max_x"] - params["min_x"]) / (
-                params["x_count"] - 1
-            )
-            y_dist = (params["max_y"] - params["min_y"]) / (
-                params["y_count"] - 1
-            )
+            x_dist = (params["max_x"] - params["min_x"]) / (params["x_count"] - 1)
+            y_dist = (params["max_y"] - params["min_y"]) / (params["y_count"] - 1)
 
             max_slope_value = 0
             max_slope_pos = None
@@ -535,9 +523,7 @@ class BedMeshCalibrate:
                     # round bed, check distance from origin
                     dist_from_origin = math.sqrt(pos_x * pos_x + pos_y * pos_y)
                     if dist_from_origin <= self.radius:
-                        points.append(
-                            (self.origin[0] + pos_x, self.origin[1] + pos_y)
-                        )
+                        points.append((self.origin[0] + pos_x, self.origin[1] + pos_y))
             pos_y += y_dist
         self.points = points
         if self.zero_ref_pos is None or probe_method == "manual":
@@ -617,9 +603,7 @@ class BedMeshCalibrate:
         probe = self.printer.lookup_object("probe", None)
         if probe is not None:
             x_offset, y_offset = probe.get_offsets()[:2]
-        print_func(
-            "bed_mesh: generated points\nIndex |  Tool Adjusted  |   Probe"
-        )
+        print_func("bed_mesh: generated points\nIndex |  Tool Adjusted  |   Probe")
         for i, (x, y) in enumerate(self.points):
             if i >= 50 and truncate:
                 end = len(self.points) - 1
@@ -647,15 +631,11 @@ class BedMeshCalibrate:
         orig_cfg = self.orig_config
         self.radius = config.getfloat("mesh_radius", None, above=0.0)
         if self.radius is not None:
-            self.origin = config.getfloatlist(
-                "mesh_origin", (0.0, 0.0), count=2
-            )
+            self.origin = config.getfloatlist("mesh_origin", (0.0, 0.0), count=2)
             x_cnt = y_cnt = config.getint("round_probe_count", 5, minval=3)
             # round beds must have an odd number of points along each axis
             if not x_cnt & 1:
-                raise config.error(
-                    "bed_mesh: probe_count must be odd for round beds"
-                )
+                raise config.error("bed_mesh: probe_count must be odd for round beds")
             # radius may have precision to .1mm
             self.radius = math.floor(self.radius * 10) / 10
             orig_cfg["radius"] = self.radius
@@ -684,9 +664,7 @@ class BedMeshCalibrate:
             "bicubic_tension", 0.2, minval=0.0, maxval=2.0
         )
         for i in list(range(1, 100, 1)):
-            start = config.getfloatlist(
-                "faulty_region_%d_min" % (i,), None, count=2
-            )
+            start = config.getfloatlist("faulty_region_%d_min" % (i,), None, count=2)
             if start is None:
                 break
             end = config.getfloatlist("faulty_region_%d_max" % (i,), count=2)
@@ -737,9 +715,7 @@ class BedMeshCalibrate:
         x_pps = params["mesh_x_pps"]
         y_pps = params["mesh_y_pps"]
         if params["algo"] not in self.ALGOS:
-            raise error(
-                "bed_mesh: Unknown algorithm <%s>" % (self.mesh_config["algo"])
-            )
+            raise error("bed_mesh: Unknown algorithm <%s>" % (self.mesh_config["algo"]))
         # Check the algorithm against the current configuration
         max_probe_cnt = max(params["x_count"], params["y_count"])
         min_probe_cnt = min(params["x_count"], params["y_count"])
@@ -822,15 +798,9 @@ class BedMeshCalibrate:
         # Compute a ratio between the adapted and original sizes
         ratio = (
             adjusted_mesh_size[0]
-            / (
-                self.orig_config["mesh_max"][0]
-                - self.orig_config["mesh_min"][0]
-            ),
+            / (self.orig_config["mesh_max"][0] - self.orig_config["mesh_min"][0]),
             adjusted_mesh_size[1]
-            / (
-                self.orig_config["mesh_max"][1]
-                - self.orig_config["mesh_min"][1]
-            ),
+            / (self.orig_config["mesh_max"][1] - self.orig_config["mesh_min"][1]),
         )
 
         gcmd.respond_info(
@@ -842,17 +812,12 @@ class BedMeshCalibrate:
             % (self.mesh_config["x_count"], self.mesh_config["y_count"])
         )
         gcmd.respond_info(
-            "Adapted mesh bounds: (%s,%s)"
-            % (adjusted_mesh_min, adjusted_mesh_max)
+            "Adapted mesh bounds: (%s,%s)" % (adjusted_mesh_min, adjusted_mesh_max)
         )
         gcmd.respond_info("Ratio: (%s, %s)" % ratio)
 
-        new_x_probe_count = int(
-            math.ceil(self.mesh_config["x_count"] * ratio[0])
-        )
-        new_y_probe_count = int(
-            math.ceil(self.mesh_config["y_count"] * ratio[1])
-        )
+        new_x_probe_count = int(math.ceil(self.mesh_config["x_count"] * ratio[0]))
+        new_y_probe_count = int(math.ceil(self.mesh_config["y_count"] * ratio[1]))
 
         # There is one case, where we may have to adjust the probe counts:
         # axis0 < 4 and axis1 > 6 (see _verify_algorithm).
@@ -867,8 +832,7 @@ class BedMeshCalibrate:
         new_y_probe_count = max(min_num_of_probes, new_y_probe_count)
 
         gcmd.respond_info(
-            "Adapted probe count: (%s,%s)"
-            % (new_x_probe_count, new_y_probe_count)
+            "Adapted probe count: (%s,%s)" % (new_x_probe_count, new_y_probe_count)
         )
 
         # If the adapted mesh size is too small, adjust it to something
@@ -880,9 +844,7 @@ class BedMeshCalibrate:
 
         if self.radius is not None:
             adapted_radius = (
-                math.sqrt(
-                    (adjusted_mesh_size[0] ** 2) + (adjusted_mesh_size[1] ** 2)
-                )
+                math.sqrt((adjusted_mesh_size[0] ** 2) + (adjusted_mesh_size[1] ** 2))
                 / 2
             )
             adapted_origin = (
@@ -964,9 +926,7 @@ class BedMeshCalibrate:
             self._generate_points(gcmd.error, probe_method)
             pts = self._get_adjusted_points()
             self.probe_helper.update_probe_points(pts, 3)
-            msg = "\n".join(
-                ["%s: %s" % (k, v) for k, v in self.mesh_config.items()]
-            )
+            msg = "\n".join(["%s: %s" % (k, v) for k, v in self.mesh_config.items()])
             logging.info("Updated Mesh Configuration:\n" + msg)
         else:
             self._generate_points(gcmd.error, probe_method)
@@ -1007,8 +967,7 @@ class BedMeshCalibrate:
             ref_pos = positions.pop()
             logging.info(
                 "bed_mesh: z-offset replaced with probed z value at "
-                "position (%.2f, %.2f, %.6f)"
-                % (ref_pos[0], ref_pos[1], ref_pos[2])
+                "position (%.2f, %.2f, %.6f)" % (ref_pos[0], ref_pos[1], ref_pos[2])
             )
             z_offset = ref_pos[2]
         params = dict(self.mesh_config)
@@ -1032,9 +991,7 @@ class BedMeshCalibrate:
                 idx = i + idx_offset
                 # Add "normal" points
                 corrected_pts.extend(positions[start_idx:idx])
-                avg_z = sum(
-                    [p[2] for p in positions[idx : idx + len(pts)]]
-                ) / len(pts)
+                avg_z = sum([p[2] for p in positions[idx : idx + len(pts)]]) / len(pts)
                 idx_offset += len(pts) - 1
                 start_idx = idx + len(pts)
                 fpt.append(avg_z)
@@ -1055,9 +1012,9 @@ class BedMeshCalibrate:
                 )
             for gen_pt, probed in zip(self.points, corrected_pts):
                 off_pt = [p - o for p, o in zip(gen_pt, offsets[:2])]
-                if not isclose(
-                    off_pt[0], probed[0], abs_tol=0.1
-                ) or not isclose(off_pt[1], probed[1], abs_tol=0.1):
+                if not isclose(off_pt[0], probed[0], abs_tol=0.1) or not isclose(
+                    off_pt[1], probed[1], abs_tol=0.1
+                ):
                     self._dump_points(positions, corrected_pts, offsets)
                     raise self.gcode.error(
                         "bed_mesh: point mismatch, orig = (%.2f, %.2f)"
@@ -1155,16 +1112,462 @@ class BedMeshCalibrate:
                 probed_pt = "(%.2f, %.2f, %.4f)" % tuple(probed_pts[i])
             if i < len(corrected_pts):
                 corr_pt = "(%.2f, %.2f, %.4f)" % tuple(corrected_pts[i])
-            logging.info(
-                "  %-4d| %-17s| %-25s| %s" % (i, gen_pt, probed_pt, corr_pt)
-            )
+            logging.info("  %-4d| %-17s| %-25s| %s" % (i, gen_pt, probed_pt, corr_pt))
+
+
+class ProbeManager:
+    def __init__(self, config, orig_config, finalize_cb):
+        self.printer = config.get_printer()
+        self.cfg_overshoot = config.getfloat("scan_overshoot", 0, minval=1.0)
+        self.orig_config = orig_config
+        self.faulty_regions = []
+        self.overshoot = self.cfg_overshoot
+        self.zero_ref_pos = config.getfloatlist(
+            "zero_reference_position", None, count=2
+        )
+        self.zref_mode = ZrefMode.DISABLED
+        self.base_points = []
+        self.substitutes = collections.OrderedDict()
+        self.is_round = orig_config["radius"] is not None
+        self.probe_helper = probe.ProbePointsHelper(config, finalize_cb, [])
+        self.probe_helper.use_xy_offsets(True)
+        self.rapid_scan_helper = RapidScanHelper(config, self, finalize_cb)
+        self._init_faulty_regions(config)
+
+    def _init_faulty_regions(self, config):
+        for i in list(range(1, 100, 1)):
+            start = config.getfloatlist("faulty_region_%d_min" % (i,), None, count=2)
+            if start is None:
+                break
+            end = config.getfloatlist("faulty_region_%d_max" % (i,), count=2)
+            # Validate the corners.  If necessary reorganize them.
+            # c1 = min point, c3 = max point
+            #  c4 ---- c3
+            #  |        |
+            #  c1 ---- c2
+            c1 = [min([s, e]) for s, e in zip(start, end)]
+            c3 = [max([s, e]) for s, e in zip(start, end)]
+            c2 = [c1[0], c3[1]]
+            c4 = [c3[0], c1[1]]
+            # Check for overlapping regions
+            for j, (prev_c1, prev_c3) in enumerate(self.faulty_regions):
+                prev_c2 = [prev_c1[0], prev_c3[1]]
+                prev_c4 = [prev_c3[0], prev_c1[1]]
+                # Validate that no existing corner is within the new region
+                for coord in [prev_c1, prev_c2, prev_c3, prev_c4]:
+                    if within(coord, c1, c3):
+                        raise config.error(
+                            "bed_mesh: Existing faulty_region_%d %s overlaps "
+                            "added faulty_region_%d %s"
+                            % (j + 1, repr([prev_c1, prev_c3]), i, repr([c1, c3]))
+                        )
+                # Validate that no new corner is within an existing region
+                for coord in [c1, c2, c3, c4]:
+                    if within(coord, prev_c1, prev_c3):
+                        raise config.error(
+                            "bed_mesh: Added faulty_region_%d %s overlaps "
+                            "existing faulty_region_%d %s"
+                            % (i, repr([c1, c3]), j + 1, repr([prev_c1, prev_c3]))
+                        )
+            self.faulty_regions.append((c1, c3))
+
+    def start_probe(self, gcmd):
+        method = gcmd.get("METHOD", "automatic").lower()
+        can_scan = False
+        pprobe = self.printer.lookup_object("probe", None)
+        if pprobe is not None:
+            probe_name = pprobe.get_status(None).get("name", "")
+            can_scan = probe_name.startswith("probe_eddy_current")
+        if method == "rapid_scan" and can_scan:
+            self.rapid_scan_helper.perform_rapid_scan(gcmd)
+        else:
+            self.probe_helper.start_probe(gcmd)
+
+    def get_zero_ref_pos(self):
+        return self.zero_ref_pos
+
+    def get_zero_ref_mode(self):
+        return self.zref_mode
+
+    def get_substitutes(self):
+        return self.substitutes
+
+    def generate_points(
+        self, mesh_config, mesh_min, mesh_max, radius, origin, probe_method="automatic"
+    ):
+        x_cnt = mesh_config["x_count"]
+        y_cnt = mesh_config["y_count"]
+        min_x, min_y = mesh_min
+        max_x, max_y = mesh_max
+        x_dist = (max_x - min_x) / (x_cnt - 1)
+        y_dist = (max_y - min_y) / (y_cnt - 1)
+        # floor distances down to next hundredth
+        x_dist = math.floor(x_dist * 100) / 100
+        y_dist = math.floor(y_dist * 100) / 100
+        if x_dist < 1.0 or y_dist < 1.0:
+            raise BedMeshError("bed_mesh: min/max points too close together")
+
+        if radius is not None:
+            # round bed, min/max needs to be recalculated
+            y_dist = x_dist
+            new_r = (x_cnt // 2) * x_dist
+            min_x = min_y = -new_r
+            max_x = max_y = new_r
+        else:
+            # rectangular bed, only re-calc max_x
+            max_x = min_x + x_dist * (x_cnt - 1)
+        pos_y = min_y
+        points = []
+        for i in range(y_cnt):
+            for j in range(x_cnt):
+                if not i % 2:
+                    # move in positive direction
+                    pos_x = min_x + j * x_dist
+                else:
+                    # move in negative direction
+                    pos_x = max_x - j * x_dist
+                if radius is None:
+                    # rectangular bed, append
+                    points.append((pos_x, pos_y))
+                else:
+                    # round bed, check distance from origin
+                    dist_from_origin = math.sqrt(pos_x * pos_x + pos_y * pos_y)
+                    if dist_from_origin <= radius:
+                        points.append((origin[0] + pos_x, origin[1] + pos_y))
+            pos_y += y_dist
+        if self.zero_ref_pos is None or probe_method == "manual":
+            # Zero Reference Disabled
+            self.zref_mode = ZrefMode.DISABLED
+        elif within(self.zero_ref_pos, mesh_min, mesh_max):
+            # Zero Reference position within mesh
+            self.zref_mode = ZrefMode.IN_MESH
+        else:
+            # Zero Reference position outside of mesh
+            self.zref_mode = ZrefMode.PROBE
+        self.base_points = points
+        self.substitutes.clear()
+        # adjust overshoot
+        og_min_x = self.orig_config["mesh_min"][0]
+        og_max_x = self.orig_config["mesh_max"][0]
+        add_ovs = min(max(0, min_x - og_min_x), max(0, og_max_x - max_x))
+        self.overshoot = self.cfg_overshoot + math.floor(add_ovs)
+        min_pt, max_pt = (min_x, min_y), (max_x, max_y)
+        self._process_faulty_regions(min_pt, max_pt, radius)
+        self.probe_helper.update_probe_points(self.get_std_path(), 3)
+
+    def _process_faulty_regions(self, min_pt, max_pt, radius):
+        if not self.faulty_regions:
+            return
+        # Cannot probe a reference within a faulty region
+        if self.zref_mode == ZrefMode.PROBE:
+            for min_c, max_c in self.faulty_regions:
+                if within(self.zero_ref_pos, min_c, max_c):
+                    opt = "zero_reference_position"
+                    raise BedMeshError(
+                        "bed_mesh: Cannot probe zero reference position at "
+                        "(%.2f, %.2f) as it is located within a faulty region."
+                        " Check the value for option '%s'"
+                        % (
+                            self.zero_ref_pos[0],
+                            self.zero_ref_pos[1],
+                            opt,
+                        )
+                    )
+        # Check to see if any points fall within faulty regions
+        last_y = self.base_points[0][1]
+        is_reversed = False
+        for i, coord in enumerate(self.base_points):
+            if not isclose(coord[1], last_y):
+                is_reversed = not is_reversed
+            last_y = coord[1]
+            adj_coords = []
+            for min_c, max_c in self.faulty_regions:
+                if within(coord, min_c, max_c, tol=0.00001):
+                    # Point lies within a faulty region
+                    adj_coords = [
+                        (min_c[0], coord[1]),
+                        (coord[0], min_c[1]),
+                        (coord[0], max_c[1]),
+                        (max_c[0], coord[1]),
+                    ]
+                    if is_reversed:
+                        # Swap first and last points for zig-zag pattern
+                        first = adj_coords[0]
+                        adj_coords[0] = adj_coords[-1]
+                        adj_coords[-1] = first
+                    break
+            if not adj_coords:
+                # coord is not located within a faulty region
+                continue
+            valid_coords = []
+            for ac in adj_coords:
+                # make sure that coordinates are within the mesh boundary
+                if radius is None:
+                    if within(ac, min_pt, max_pt, 0.000001):
+                        valid_coords.append(ac)
+                else:
+                    dist_from_origin = math.sqrt(ac[0] * ac[0] + ac[1] * ac[1])
+                    if dist_from_origin <= radius:
+                        valid_coords.append(ac)
+            if not valid_coords:
+                raise BedMeshError(
+                    "bed_mesh: Unable to generate coordinates"
+                    " for faulty region at index: %d" % (i)
+                )
+            self.substitutes[i] = valid_coords
+
+    def get_base_points(self):
+        return self.base_points
+
+    def get_std_path(self):
+        path = []
+        for idx, pt in enumerate(self.base_points):
+            if idx in self.substitutes:
+                for sub_pt in self.substitutes[idx]:
+                    path.append(sub_pt)
+            else:
+                path.append(pt)
+        if self.zref_mode == ZrefMode.PROBE:
+            path.append(self.zero_ref_pos)
+        return path
+
+    def iter_rapid_path(self):
+        ascnd_x = True
+        last_base_pt = last_mv_pt = self.base_points[0]
+        # Generate initial move point
+        if self.overshoot:
+            overshoot = min(8, self.overshoot)
+            last_mv_pt = (last_base_pt[0] - overshoot, last_base_pt[1])
+            yield last_mv_pt, False
+        for idx, pt in enumerate(self.base_points):
+            # increasing Y indicates direction change
+            dir_change = not isclose(pt[1], last_base_pt[1], abs_tol=1e-6)
+            if idx in self.substitutes:
+                fp_gen = self._gen_faulty_path(last_mv_pt, idx, ascnd_x, dir_change)
+                for sub_pt, is_smp in fp_gen:
+                    yield sub_pt, is_smp
+                    last_mv_pt = sub_pt
+            else:
+                if dir_change:
+                    for dpt in self._gen_dir_change(last_mv_pt, pt, ascnd_x):
+                        yield dpt, False
+                yield pt, True
+                last_mv_pt = pt
+            last_base_pt = pt
+            ascnd_x ^= dir_change
+        if self.zref_mode == ZrefMode.PROBE:
+            if self.overshoot:
+                ovs = min(4, self.overshoot)
+                ovs = ovs if ascnd_x else -ovs
+                yield (last_mv_pt[0] + ovs, last_mv_pt[1]), False
+            yield self.zero_ref_pos, True
+
+    def _gen_faulty_path(self, last_pt, idx, ascnd_x, dir_change):
+        subs = self.substitutes[idx]
+        sub_cnt = len(subs)
+        if dir_change:
+            for dpt in self._gen_dir_change(last_pt, subs[0], ascnd_x):
+                yield dpt, False
+        if self.is_round:
+            # No faulty region path handling for round beds
+            for pt in subs:
+                yield pt, True
+            return
+        # Check to see if this is the first corner
+        first_corner = False
+        sorted_sub_idx = sorted(self.substitutes.keys())
+        if sub_cnt == 2 and idx < len(sorted_sub_idx):
+            first_corner = sorted_sub_idx[idx] == idx
+        yield subs[0], True
+        if sub_cnt == 1:
+            return
+        last_pt, next_pt = subs[:2]
+        if sub_cnt == 2:
+            if first_corner or dir_change:
+                # horizontal move first
+                yield (next_pt[0], last_pt[1]), False
+            else:
+                yield (last_pt[0], next_pt[1]), False
+            yield next_pt, True
+        elif sub_cnt >= 3:
+            if dir_change:
+                # first move should be a vertical switch up.  If overshoot
+                # is available, simulate another direction change.  Otherwise
+                # move inward 2 mm, then up through the faulty region.
+                if self.overshoot:
+                    for dpt in self._gen_dir_change(last_pt, next_pt, ascnd_x):
+                        yield dpt, False
+                else:
+                    shift = -2 if ascnd_x else 2
+                    yield (last_pt[0] + shift, last_pt[1]), False
+                    yield (last_pt[0] + shift, next_pt[1]), False
+                yield next_pt, True
+                last_pt, next_pt = subs[1:3]
+            else:
+                # vertical move
+                yield (last_pt[0], next_pt[1]), False
+                yield next_pt, True
+                last_pt, next_pt = subs[1:3]
+                if sub_cnt == 4:
+                    # Vertical switch up within faulty region
+                    shift = 2 if ascnd_x else -2
+                    yield (last_pt[0] + shift, last_pt[1]), False
+                    yield (next_pt[0] - shift, next_pt[1]), False
+                    yield next_pt, True
+                    last_pt, next_pt = subs[2:4]
+            # horizontal move before final point
+            yield (next_pt[0], last_pt[1]), False
+            yield next_pt, True
+
+    def _gen_dir_change(self, last_pt, next_pt, ascnd_x):
+        if not self.overshoot:
+            return
+        # overshoot X beyond the outer point
+        xdir = 1 if ascnd_x else -1
+        overshoot = 2.0 if self.overshoot >= 3.0 else self.overshoot
+        ovr_pt = (last_pt[0] + overshoot * xdir, last_pt[1])
+        yield ovr_pt
+        if self.overshoot < 3.0:
+            # No room to generate an arc, move up to next y
+            yield (next_pt[0] + overshoot * xdir, next_pt[1])
+        else:
+            # generate arc
+            STEP_ANGLE = 3
+            START_ANGLE = 270
+            ydiff = abs(next_pt[1] - last_pt[1])
+            xdiff = abs(next_pt[0] - last_pt[0])
+            max_radius = min(self.overshoot - 2, 8)
+            radius = min(ydiff / 2, max_radius)
+            origin = [ovr_pt[0], last_pt[1] + radius]
+            next_origin_y = next_pt[1] - radius
+            # determine angle
+            if xdiff < 0.01:
+                # Move is aligned on the x-axis
+                angle = 90
+                if next_origin_y - origin[1] < 0.05:
+                    # The move can be completed in a single arc
+                    angle = 180
+            else:
+                angle = int(math.degrees(math.atan(ydiff / xdiff)))
+                if (ascnd_x and next_pt[0] < last_pt[0]) or (
+                    not ascnd_x and next_pt[0] > last_pt[0]
+                ):
+                    angle = 180 - angle
+            count = int(angle // STEP_ANGLE)
+            # Gen first arc
+            step = STEP_ANGLE * xdir
+            start = START_ANGLE + step
+            for arc_pt in self._gen_arc(origin, radius, start, step, count):
+                yield arc_pt
+            if angle == 180:
+                # arc complete
+                return
+            # generate next arc
+            origin = [next_pt[0] + overshoot * xdir, next_origin_y]
+            # start at the angle where the last arc finished
+            start = START_ANGLE + count * step
+            # recalculate the count to make sure we generate a full 180
+            # degrees.  Add a step for the repeated connecting angle
+            count = 61 - count
+            for arc_pt in self._gen_arc(origin, radius, start, step, count):
+                yield arc_pt
+
+    def _gen_arc(self, origin, radius, start, step, count):
+        end = start + step * count
+        # create a segent for every 3 degrees of travel
+        for angle in range(start, end, step):
+            rad = math.radians(angle % 360)
+            opp = math.sin(rad) * radius
+            adj = math.cos(rad) * radius
+            yield (origin[0] + adj, origin[1] + opp)
+
+
+MAX_HIT_DIST = 2.0
+MM_WIN_SPEED = 125
+
+
+class RapidScanHelper:
+    def __init__(self, config, probe_mgr, finalize_cb):
+        self.printer = config.get_printer()
+        self.probe_manager = probe_mgr
+        self.speed = config.getfloat("speed", 50.0, above=0.0)
+        self.scan_height = config.getfloat("horizontal_move_z", 5.0)
+        self.finalize_callback = finalize_cb
+
+    def perform_rapid_scan(self, gcmd):
+        speed = gcmd.get_float("SCAN_SPEED", self.speed)
+        scan_height = gcmd.get_float("HORIZONTAL_MOVE_Z", self.scan_height)
+        gcmd.respond_info(
+            "Beginning rapid surface scan at height %.2f..." % (scan_height)
+        )
+        pprobe = self.printer.lookup_object("probe")
+        toolhead = self.printer.lookup_object("toolhead")
+        # Calculate time window around which a sample is valid.  Current
+        # assumption is anything within 2mm is usable, so:
+        # window = 2 / max_speed
+        #
+        # TODO: validate maximum speed allowed based on sample rate of probe
+        # Scale the hit distance window for speeds lower than 125mm/s.  The
+        # lower the speed the less the window shrinks.
+        scale = max(0, 1 - speed / MM_WIN_SPEED) + 1
+        hit_dist = min(MAX_HIT_DIST, scale * speed / MM_WIN_SPEED)
+        half_window = hit_dist / speed
+        gcmd.respond_info(
+            "Sample hit distance +/- %.4fmm, time window +/- ms %.4f"
+            % (hit_dist, half_window * 1000)
+        )
+        gcmd_params = gcmd.get_command_parameters()
+        gcmd_params["SAMPLE_TIME"] = half_window * 2
+        self._raise_tool(gcmd, scan_height)
+        probe_session = pprobe.start_probe_session(gcmd)
+        offsets = pprobe.get_offsets()
+        initial_move = True
+        for pos, is_probe_pt in self.probe_manager.iter_rapid_path():
+            pos = self._apply_offsets(pos[:2], offsets)
+            toolhead.manual_move(pos, speed)
+            if initial_move:
+                initial_move = False
+                self._move_to_scan_height(gcmd, scan_height)
+            if is_probe_pt:
+                probe_session.run_probe(gcmd)
+        results = probe_session.pull_probed_results()
+        toolhead.get_last_move_time()
+        self.finalize_callback(offsets, results)
+        probe_session.end_probe_session()
+
+    def _raise_tool(self, gcmd, scan_height):
+        # If the nozzle is below scan height raise the tool
+        toolhead = self.printer.lookup_object("toolhead")
+        pprobe = self.printer.lookup_object("probe")
+        cur_pos = toolhead.get_position()
+        if cur_pos[2] >= scan_height:
+            return
+        pparams = pprobe.get_probe_params(gcmd)
+        lift_speed = pparams["lift_speed"]
+        cur_pos[2] = self.scan_height + 0.5
+        toolhead.manual_move(cur_pos, lift_speed)
+
+    def _move_to_scan_height(self, gcmd, scan_height):
+        time_window = gcmd.get_float("SAMPLE_TIME")
+        toolhead = self.printer.lookup_object("toolhead")
+        pprobe = self.printer.lookup_object("probe")
+        cur_pos = toolhead.get_position()
+        pparams = pprobe.get_probe_params(gcmd)
+        lift_speed = pparams["lift_speed"]
+        probe_speed = pparams["probe_speed"]
+        cur_pos[2] = scan_height + 0.5
+        toolhead.manual_move(cur_pos, lift_speed)
+        cur_pos[2] = scan_height
+        toolhead.manual_move(cur_pos, probe_speed)
+        toolhead.dwell(time_window / 2 + 0.01)
+
+    def _apply_offsets(self, point, offsets):
+        return [(pos - ofs) for pos, ofs in zip(point, offsets)]
 
 
 class MoveSplitter:
     def __init__(self, config, gcode):
-        self.split_delta_z = config.getfloat(
-            "split_delta_z", 0.025, minval=0.01
-        )
+        self.split_delta_z = config.getfloat("split_delta_z", 0.025, minval=0.01)
         self.move_check_distance = config.getfloat(
             "move_check_distance", 5.0, minval=3.0
         )
@@ -1184,7 +1587,7 @@ class MoveSplitter:
         self.z_offset = self._calc_z_offset(prev_pos)
         self.traverse_complete = False
         self.distance_checked = 0.0
-        axes_d = [self.next_pos[i] - self.prev_pos[i] for i in range(4)]
+        axes_d = [np - pp for np, pp in zip(self.next_pos, self.prev_pos)]
         self.total_move_length = math.sqrt(sum([d * d for d in axes_d[:3]]))
         self.axis_move = [not isclose(d, 0.0, abs_tol=1e-10) for d in axes_d]
 
@@ -1200,11 +1603,9 @@ class MoveSplitter:
                 "bed_mesh: Slice distance is negative "
                 "or greater than entire move length"
             )
-        for i in range(4):
+        for i in range(len(self.next_pos)):
             if self.axis_move[i]:
-                self.current_pos[i] = lerp(
-                    t, self.prev_pos[i], self.next_pos[i]
-                )
+                self.current_pos[i] = lerp(t, self.prev_pos[i], self.next_pos[i])
 
     def split(self):
         if not self.traverse_complete:
@@ -1280,12 +1681,8 @@ class ZMesh:
             "bed_mesh: Mesh grid size - X:%d, Y:%d"
             % (self.mesh_x_count, self.mesh_y_count)
         )
-        self.mesh_x_dist = (self.mesh_x_max - self.mesh_x_min) / (
-            self.mesh_x_count - 1
-        )
-        self.mesh_y_dist = (self.mesh_y_max - self.mesh_y_min) / (
-            self.mesh_y_count - 1
-        )
+        self.mesh_x_dist = (self.mesh_x_max - self.mesh_x_min) / (self.mesh_x_count - 1)
+        self.mesh_y_dist = (self.mesh_y_max - self.mesh_y_min) / (self.mesh_y_count - 1)
 
     def get_mesh_matrix(self):
         if self.mesh_matrix is not None:
@@ -1611,9 +2008,7 @@ class ProfileManager:
             self.profiles[name] = {}
             zvals = profile.getlists("points", seps=(",", "\n"), parser=float)
             self.profiles[name]["points"] = zvals
-            self.profiles[name]["mesh_params"] = params = (
-                collections.OrderedDict()
-            )
+            self.profiles[name]["mesh_params"] = params = collections.OrderedDict()
             for key, t in PROFILE_OPTIONS.items():
                 if t is int:
                     params[key] = profile.getint(key)
@@ -1678,8 +2073,7 @@ class ProfileManager:
         self.gcode.respond_info(
             "Bed Mesh state has been saved to profile [%s]\n"
             "for the current session.  The SAVE_CONFIG command will\n"
-            "update the printer config file and restart the printer."
-            % (prof_name)
+            "update the printer config file and restart the printer." % (prof_name)
         )
 
     def load_profile(self, prof_name):
@@ -1709,9 +2103,7 @@ class ProfileManager:
                 "configuration and restart the printer" % (prof_name)
             )
         else:
-            self.gcode.respond_info(
-                "No profile named [%s] to remove" % (prof_name)
-            )
+            self.gcode.respond_info("No profile named [%s] to remove" % (prof_name))
 
     cmd_BED_MESH_PROFILE_help = "Bed Mesh Persistent Storage management"
 
