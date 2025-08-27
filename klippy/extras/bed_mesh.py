@@ -459,24 +459,22 @@ class BedMeshCalibrate:
         self.radius = self.origin = None
         self.mesh_min = self.mesh_max = (0.0, 0.0)
         self.adaptive_margin = config.getfloat("adaptive_margin", 0.0)
-        self.zero_ref_pos = config.getfloatlist(
-            "zero_reference_position", None, count=2
-        )
         self.zero_reference_mode = ZrefMode.DISABLED
-        self.faulty_regions = []
-        self.substituted_indices = collections.OrderedDict()
         self.bedmesh = bedmesh
         self.mesh_config = collections.OrderedDict()
         self._init_mesh_config(config)
-        self._generate_points(config.error)
+        self.probe_mgr = ProbeManager(config, self.orig_config, self.probe_finalize)
+        try:
+            self.probe_mgr.generate_points(
+                self.mesh_config,
+                self.mesh_min,
+                self.mesh_max,
+                self.radius,
+                self.origin,
+            )
+        except BedMeshError as e:
+            raise config.error(str(e))
         self._profile_name = "default"
-        self.probe_helper = probe.ProbePointsHelper(
-            config,
-            self.probe_finalize,
-            self._get_adjusted_points(),
-            use_offsets=True,
-        )
-        self.probe_helper.minimum_points(3)
         self.gcode = self.printer.lookup_object("gcode")
         self.gcode.register_command(
             "BED_MESH_CALIBRATE",
@@ -484,119 +482,6 @@ class BedMeshCalibrate:
             desc=self.cmd_BED_MESH_CALIBRATE_help,
         )
 
-    def _generate_points(self, error, probe_method="automatic"):
-        x_cnt = self.mesh_config["x_count"]
-        y_cnt = self.mesh_config["y_count"]
-        min_x, min_y = self.mesh_min
-        max_x, max_y = self.mesh_max
-        x_dist = (max_x - min_x) / (x_cnt - 1)
-        y_dist = (max_y - min_y) / (y_cnt - 1)
-        # floor distances down to next hundredth
-        x_dist = math.floor(x_dist * 100) / 100
-        y_dist = math.floor(y_dist * 100) / 100
-        if x_dist < 1.0 or y_dist < 1.0:
-            raise error("bed_mesh: min/max points too close together")
-
-        if self.radius is not None:
-            # round bed, min/max needs to be recalculated
-            y_dist = x_dist
-            new_r = (x_cnt // 2) * x_dist
-            min_x = min_y = -new_r
-            max_x = max_y = new_r
-        else:
-            # rectangular bed, only re-calc max_x
-            max_x = min_x + x_dist * (x_cnt - 1)
-        pos_y = min_y
-        points = []
-        for i in range(y_cnt):
-            for j in range(x_cnt):
-                if not i % 2:
-                    # move in positive directon
-                    pos_x = min_x + j * x_dist
-                else:
-                    # move in negative direction
-                    pos_x = max_x - j * x_dist
-                if self.radius is None:
-                    # rectangular bed, append
-                    points.append((pos_x, pos_y))
-                else:
-                    # round bed, check distance from origin
-                    dist_from_origin = math.sqrt(pos_x * pos_x + pos_y * pos_y)
-                    if dist_from_origin <= self.radius:
-                        points.append((self.origin[0] + pos_x, self.origin[1] + pos_y))
-            pos_y += y_dist
-        self.points = points
-        if self.zero_ref_pos is None or probe_method == "manual":
-            # Zero Reference Disabled
-            self.zero_reference_mode = ZrefMode.DISABLED
-        elif within(self.zero_ref_pos, self.mesh_min, self.mesh_max):
-            # Zero Reference position within mesh
-            self.zero_reference_mode = ZrefMode.IN_MESH
-        else:
-            # Zero Reference position outside of mesh
-            self.zero_reference_mode = ZrefMode.PROBE
-        if not self.faulty_regions:
-            return
-        self.substituted_indices.clear()
-        if self.zero_reference_mode == ZrefMode.PROBE:
-            # Cannot probe a reference within a faulty region
-            for min_c, max_c in self.faulty_regions:
-                if within(self.zero_ref_pos, min_c, max_c):
-                    opt = "zero_reference_position"
-                    raise error(
-                        "bed_mesh: Cannot probe zero reference position at "
-                        "(%.2f, %.2f) as it is located within a faulty region."
-                        " Check the value for option '%s'"
-                        % (
-                            self.zero_ref_pos[0],
-                            self.zero_ref_pos[1],
-                            opt,
-                        )
-                    )
-        # Check to see if any points fall within faulty regions
-        if probe_method == "manual":
-            return
-        last_y = self.points[0][1]
-        is_reversed = False
-        for i, coord in enumerate(self.points):
-            if not isclose(coord[1], last_y):
-                is_reversed = not is_reversed
-            last_y = coord[1]
-            adj_coords = []
-            for min_c, max_c in self.faulty_regions:
-                if within(coord, min_c, max_c, tol=0.00001):
-                    # Point lies within a faulty region
-                    adj_coords = [
-                        (min_c[0], coord[1]),
-                        (coord[0], min_c[1]),
-                        (coord[0], max_c[1]),
-                        (max_c[0], coord[1]),
-                    ]
-                    if is_reversed:
-                        # Swap first and last points for zig-zag pattern
-                        first = adj_coords[0]
-                        adj_coords[0] = adj_coords[-1]
-                        adj_coords[-1] = first
-                    break
-            if not adj_coords:
-                # coord is not located within a faulty region
-                continue
-            valid_coords = []
-            for ac in adj_coords:
-                # make sure that coordinates are within the mesh boundary
-                if self.radius is None:
-                    if within(ac, (min_x, min_y), (max_x, max_y), 0.000001):
-                        valid_coords.append(ac)
-                else:
-                    dist_from_origin = math.sqrt(ac[0] * ac[0] + ac[1] * ac[1])
-                    if dist_from_origin <= self.radius:
-                        valid_coords.append(ac)
-            if not valid_coords:
-                raise error(
-                    "bed_mesh: Unable to generate coordinates"
-                    " for faulty region at index: %d" % (i)
-                )
-            self.substituted_indices[i] = valid_coords
 
     def print_generated_points(self, print_func, truncate=False):
         x_offset = y_offset = 0.0
@@ -604,6 +489,7 @@ class BedMeshCalibrate:
         if probe is not None:
             x_offset, y_offset = probe.get_offsets()[:2]
         print_func("bed_mesh: generated points\nIndex |  Tool Adjusted  |   Probe")
+        self.points = self.probe_mgr.get_base_points()
         for i, (x, y) in enumerate(self.points):
             if i >= 50 and truncate:
                 end = len(self.points) - 1
@@ -612,11 +498,13 @@ class BedMeshCalibrate:
             adj_pt = "(%.1f, %.1f)" % (x - x_offset, y - y_offset)
             mesh_pt = "(%.1f, %.1f)" % (x, y)
             print_func("  %-4d| %-16s| %s" % (i, adj_pt, mesh_pt))
+        self.zero_ref_pos = self.probe_mgr.get_zero_ref_pos()
         if self.zero_ref_pos is not None:
             print_func(
                 "bed_mesh: zero_reference_position is (%.2f, %.2f)"
                 % (self.zero_ref_pos[0], self.zero_ref_pos[1])
             )
+        self.substituted_indices = self.probe_mgr.get_substituted_indices()
         if self.substituted_indices:
             print_func("bed_mesh: faulty region points")
             for i, v in self.substituted_indices.items():
@@ -663,6 +551,7 @@ class BedMeshCalibrate:
         orig_cfg["tension"] = mesh_cfg["tension"] = config.getfloat(
             "bicubic_tension", 0.2, minval=0.0, maxval=2.0
         )
+
         for i in list(range(1, 100, 1)):
             start = config.getfloatlist("faulty_region_%d_min" % (i,), None, count=2)
             if start is None:
@@ -923,15 +812,29 @@ class BedMeshCalibrate:
 
         if need_cfg_update:
             self._verify_algorithm(gcmd.error)
-            self._generate_points(gcmd.error, probe_method)
+            self.probe_mgr.generate_points(
+                self.mesh_config,
+                self.mesh_min,
+                self.mesh_max,
+                self.radius,
+                self.origin,
+                probe_method,
+            )
             pts = self._get_adjusted_points()
             self.probe_helper.update_probe_points(pts, 3)
             msg = "\n".join(["%s: %s" % (k, v) for k, v in self.mesh_config.items()])
             logging.info("Updated Mesh Configuration:\n" + msg)
         else:
-            self._generate_points(gcmd.error, probe_method)
+            self.probe_mgr.generate_points(
+                self.mesh_config,
+                self.mesh_min,
+                self.mesh_max,
+                self.radius,
+                self.origin,
+                probe_method,
+            )
             pts = self._get_adjusted_points()
-            self.probe_helper.update_probe_points(pts, 3)
+            self.probe_mgr.update_probe_points(pts, 3)
 
     def _get_adjusted_points(self):
         adj_pts = []
@@ -958,7 +861,7 @@ class BedMeshCalibrate:
             raise gcmd.error("Value for parameter 'PROFILE' must be specified")
         self.bedmesh.set_mesh(None)
         self.update_config(gcmd)
-        self.probe_helper.start_probe(gcmd)
+        self.probe_mgr.start_probe(gcmd)
 
     def probe_finalize(self, offsets, positions):
         x_offset, y_offset, z_offset = offsets
@@ -1189,7 +1092,7 @@ class ProbeManager:
     def get_zero_ref_mode(self):
         return self.zref_mode
 
-    def get_substitutes(self):
+    def get_substituted_indices(self):
         return self.substitutes
 
     def generate_points(
