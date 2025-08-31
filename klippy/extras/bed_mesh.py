@@ -821,7 +821,7 @@ class BedMeshCalibrate:
                 probe_method,
             )
             pts = self._get_adjusted_points()
-            self.probe_helper.update_probe_points(pts, 3)
+            self.probe_mgr.probe_helper.update_probe_points(pts, 3)
             msg = "\n".join(["%s: %s" % (k, v) for k, v in self.mesh_config.items()])
             logging.info("Updated Mesh Configuration:\n" + msg)
         else:
@@ -834,7 +834,7 @@ class BedMeshCalibrate:
                 probe_method,
             )
             pts = self._get_adjusted_points()
-            self.probe_mgr.update_probe_points(pts, 3)
+            self.probe_mgr.probe_helper.update_probe_points(pts, 3)
 
     def _get_adjusted_points(self):
         adj_pts = []
